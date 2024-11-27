@@ -155,4 +155,3 @@ def iteration_sequence(A, f, u, iteration_gs = np.array([]), err=10e-6):
 
 u_gs = iteration_sequence(A, f, [0, 0, 0, 0])
 print(u_gs)
-
