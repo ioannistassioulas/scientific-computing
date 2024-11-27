@@ -40,3 +40,6 @@ git push
 !git commit -m "my commit"
 !git push origin master
 !git add .
+!git commit -m "asd"
+!git push origin master
+!git add .
