@@ -21,3 +21,8 @@ git --help
 !git add scientific-computing-model.py
 !git commit
 !git add *
+!git commit -m "FIRST COMMIT"
+git push
+!git push
+!git clone https://github.com/ioannistassioulas/scientific-computing.git
+!git add *
