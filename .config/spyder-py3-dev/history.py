@@ -26,3 +26,17 @@ git push
 !git push
 !git clone https://github.com/ioannistassioulas/scientific-computing.git
 !git add *
+!git commit -m "FIRST COMMIT"
+!git push
+!git push --set-upstream origin main
+!git push origin main
+!git add "file.py"
+!git commit -m "My commit"
+!git push origin master
+!git add "scientific-computing-model.py"
+!git commit -m "My commit"
+!git push origin master
+!git add "scientific-computing-model.py"
+!git commit -m "my commit"
+!git push origin master
+!git add .
