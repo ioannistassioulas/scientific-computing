@@ -124,7 +124,8 @@ def gauss_seidel(A, u):
 A = [[2, 1, 1, 0], [4, 3, 3, 1], [8, 7, 9, 5], [6, 7, 9, 8]]
 f = [1, 2, 3, 4]
 
-def iteration_sequence(A, f, u, iteration_gs = np.array([]), err=10e-6):
+count = 0
+def iteration_sequence(A, f, u, err=10e-6):
     '''
     Iteration sequence exists for two reasons:
         1) Recalculate the residual and check the stopping criteria
@@ -146,15 +147,15 @@ def iteration_sequence(A, f, u, iteration_gs = np.array([]), err=10e-6):
 
     '''
     residual = f - np.matmul(A, u)  # calculate residual for stopping condition
-    np.append(iteration_gs, u)  # keep track of all iterations
-    if (np.linalg.norm(residual) / np.linalg.norm(f) <= 10e-2):
-        return u
-    else:
-        u_next = gauss_seidel(A, u)  # calculate next step
-        iteration_sequence(A, f, u_next, iteration_gs)  # recursive iteration
+    u_next = gauss_seidel(A, u)  # calculate next step
+    count += 1
+    if(count == 10):
+        return np.array([0, 0, 0, 0])
+    return np.vstack((u_next, iteration_sequence(A, f, u_next)))
 
 
-u_gs = iteration_sequence(A, f, [0, 0, 0, 0])
-print(u_gs)
+iteration_record = iteration_sequence(A, f, [0, 0, 0, 0])
+print(iteration_record)
+
 
 # Checking to see if everything is working
