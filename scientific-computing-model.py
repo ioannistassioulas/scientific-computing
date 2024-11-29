@@ -18,19 +18,19 @@ def exact_solution(x, y):
     return (x * (1 - x) * y**3 * (1 - y))+ np.exp(x)
 
 # Plot the exact solution
-X = np.arange(0, 1, 0.1)
-Y = np.arange(0, 1, 0.1)
-x, y = np.meshgrid(X, Y)
-z = (x * (1 - x) * y**3 * (1 - y)) + np.exp(x)
+# X = np.arange(0, 1, 0.1)
+# Y = np.arange(0, 1, 0.1)
+# x, y = np.meshgrid(X, Y)
+# z = (x * (1 - x) * y**3 * (1 - y)) + np.exp(x)
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.plot_surface(x, y, z, label="Exact Solution")
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+# ax.plot_surface(x, y, z, label="Exact Solution")
 
-plt.xlabel('X')
-plt.ylabel('Y')
-plt.legend()
-plt.show()
+# plt.xlabel('X')
+# plt.ylabel('Y')
+# plt.legend()
+# plt.show()
 
 # Direct solver via LU-Decomposition
 def direct_homebrew(A, n):
@@ -122,9 +122,8 @@ def gauss_seidel(A, u):
     return u
 
 A = [[2, 1, 1, 0], [4, 3, 3, 1], [8, 7, 9, 5], [6, 7, 9, 8]]
-f = [1, 2, 3, 4]
+f = [4, 11, 29, 30]
 
-count = 0
 def iteration_sequence(A, f, u, err=10e-6):
     '''
     Iteration sequence exists for two reasons:
@@ -148,13 +147,14 @@ def iteration_sequence(A, f, u, err=10e-6):
     '''
     residual = f - np.matmul(A, u)  # calculate residual for stopping condition
     u_next = gauss_seidel(A, u)  # calculate next step
-    count += 1
-    if(count == 10):
+    if(np.linalg.norm(residual)/np.linalg.norm(f) < 10e-6):
         return np.array([0, 0, 0, 0])
+    print(np.linalg.norm(residual)/np.linalg.norm(f))
+
     return np.vstack((u_next, iteration_sequence(A, f, u_next)))
 
 
-iteration_record = iteration_sequence(A, f, [0, 0, 0, 0])
+iteration_record = iteration_sequence(A, f, 0.9 * np.array([1, 1, 1, 1]))
 print(iteration_record)
 
 
