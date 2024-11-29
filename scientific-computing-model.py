@@ -122,12 +122,13 @@ def gauss_seidel(A, u):
     return u
 
 A = [[2, 1, 1, 0], [4, 3, 3, 1], [8, 7, 9, 5], [6, 7, 9, 8]]
-
+f = [1, 2, 3, 4]
 
 def iteration_sequence(A, f, u, iteration_gs = np.array([]), err=10e-6):
     '''
-    
-
+    Iteration sequence exists for two reasons:
+        1) Recalculate the residual and check the stopping criteria
+        2) Iterate over the Gauss Seidel Step 
     Parameters
     ----------
     A : n x n two dimensional integer array
@@ -155,3 +156,5 @@ def iteration_sequence(A, f, u, iteration_gs = np.array([]), err=10e-6):
 
 u_gs = iteration_sequence(A, f, [0, 0, 0, 0])
 print(u_gs)
+
+# Checking to see if everything is working
