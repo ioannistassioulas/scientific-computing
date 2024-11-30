@@ -13,6 +13,7 @@ from scipy import linalg
 # Working on a new scientific computing model that helps compute the solutiuon
 # to the discrete Helmholtz Equation
 
+# Question 1
 # Exact solution
 def exact_solution(x, y):
     return (x * (1 - x) * y**3 * (1 - y))+ np.exp(x)
@@ -32,6 +33,9 @@ def exact_solution(x, y):
 # plt.legend()
 # plt.show()
 
+#################################################
+
+# Question 2
 # Direct solver via LU-Decomposition
 def direct_homebrew(A, n):
     '''
@@ -60,7 +64,7 @@ def direct_homebrew(A, n):
                     A[i][j] = A[i][j] - (L[i][k] * A[k][j])
     return L
 
-def direct_solver(A, f):
+def direct_solver(A, f, N):
     
     # placeholders for the solutions
     y = np.zeros(len(A))
@@ -78,6 +82,10 @@ def direct_solver(A, f):
     
     # Return the final solution
     return u, L, U
+
+
+###########################################
+# Question 3
 
 # discretize and create my own matrix
 def create_matrix(N):
