@@ -13,25 +13,29 @@ from scipy import linalg
 # Working on a new scientific computing model that helps compute the solutiuon
 # to the discrete Helmholtz Equation
 
+# Question 1
 # Exact solution
 def exact_solution(x, y):
     return (x * (1 - x) * y**3 * (1 - y))+ np.exp(x)
 
 # Plot the exact solution
-X = np.arange(0, 1, 0.1)
-Y = np.arange(0, 1, 0.1)
-x, y = np.meshgrid(X, Y)
-z = (x * (1 - x) * y**3 * (1 - y)) + np.exp(x)
+# X = np.arange(0, 1, 0.1)
+# Y = np.arange(0, 1, 0.1)
+# x, y = np.meshgrid(X, Y)
+# z = (x * (1 - x) * y**3 * (1 - y)) + np.exp(x)
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.plot_surface(x, y, z, label="Exact Solution")
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+# ax.plot_surface(x, y, z, label="Exact Solution")
 
-plt.xlabel('X')
-plt.ylabel('Y')
-plt.legend()
-plt.show()
+# plt.xlabel('X')
+# plt.ylabel('Y')
+# plt.legend()
+# plt.show()
 
+#################################################
+
+# Question 2
 # Direct solver via LU-Decomposition
 def direct_homebrew(A, n):
     '''
@@ -60,7 +64,7 @@ def direct_homebrew(A, n):
                     A[i][j] = A[i][j] - (L[i][k] * A[k][j])
     return L
 
-def direct_solver(A, f):
+def direct_solver(A, f, N):
     
     # placeholders for the solutions
     y = np.zeros(len(A))
@@ -78,6 +82,10 @@ def direct_solver(A, f):
     
     # Return the final solution
     return u, L, U
+
+
+###########################################
+# Question 3
 
 # discretize and create my own matrix
 def create_matrix(N):
@@ -122,12 +130,13 @@ def gauss_seidel(A, u):
     return u
 
 A = [[2, 1, 1, 0], [4, 3, 3, 1], [8, 7, 9, 5], [6, 7, 9, 8]]
+f = [4, 11, 29, 30]
 
-
-def iteration_sequence(A, f, u, iteration_gs = np.array([]), err=10e-6):
+def iteration_sequence(A, f, u, err=10e-6):
     '''
-    
-
+    Iteration sequence exists for two reasons:
+        1) Recalculate the residual and check the stopping criteria
+        2) Iterate over the Gauss Seidel Step 
     Parameters
     ----------
     A : n x n two dimensional integer array
@@ -145,13 +154,16 @@ def iteration_sequence(A, f, u, iteration_gs = np.array([]), err=10e-6):
 
     '''
     residual = f - np.matmul(A, u)  # calculate residual for stopping condition
-    np.append(iteration_gs, u)  # keep track of all iterations
-    if (np.linalg.norm(residual) / np.linalg.norm(f) <= 10e-2):
-        return u
-    else:
-        u_next = gauss_seidel(A, u)  # calculate next step
-        iteration_sequence(A, f, u_next, iteration_gs)  # recursive iteration
+    u_next = gauss_seidel(A, u)  # calculate next step
+    if(np.linalg.norm(residual)/np.linalg.norm(f) < 10e-6):
+        return np.array([0, 0, 0, 0])
+    print(np.linalg.norm(residual)/np.linalg.norm(f))
+
+    return np.vstack((u_next, iteration_sequence(A, f, u_next)))
 
 
-u_gs = iteration_sequence(A, f, [0, 0, 0, 0])
-print(u_gs)
+iteration_record = iteration_sequence(A, f, 0.9 * np.array([1, 1, 1, 1]))
+print(iteration_record)
+
+
+# Checking to see if everything is working
