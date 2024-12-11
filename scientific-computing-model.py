@@ -100,7 +100,6 @@ def A(N):
     
     A[0][0] = 1/((N+1)**2)
     A[N][N] = 1/((N+1)**2)
-    print(A)
     return A
 
 def B(N):
@@ -127,77 +126,84 @@ def create_matrix(N):
     matrix_B1 = sp.linalg.block_diag(offset, *blocks_B, offset.T)
     matrix_B2 = sp.linalg.block_diag(offset.T, *blocks_B, offset)
     
-    matrix = matrix_A + matrix_B1 + matrix_B2
+    matrix = matrix_A + matrix_B1 + matrix_B2  
+
     
-    return matrix
+    #delete boundaries
+    matrix[:N+1, :] = 0
+    matrix[-(N+1):, :] = 0
+    matrix[:, :(N+1)] = 0
+    matrix[:, -(N+1):] = 0
+    
+    for i in range(len(matrix)):
+        matrix[i][i] = (1 / (N+1))**2 if matrix[i][i] == 0 else matrix[i][i]
+    
+    return np.array(matrix)
         
-create_matrix(3)
-A = [[2, 1, 1, 0], [4, 3, 3, 1], [8, 7, 9, 5], [6, 7, 9, 8]]
-f = [1, 2, 3, 4]
+print(create_matrix(3))
+
+A = create_matrix(3)
+f = np.random.randint(1, 10, size=len(A))
+print(f.shape)
 sol, lower, upper= direct_solver(A,f)
 
 
 L_home  = direct_homebrew(A, len(A))
 
 # solve problem using Gauss Seidel
-# def gauss_seidel(A, u):
-#     '''
-#     Take a single step in the Gauss Seidel iteration method
+def gauss_seidel(A, u):
+    '''
+    Take a single step in the Gauss Seidel iteration method
 
-#     Parameters
-#     ----------
-#     A : 2-dimensional n x n integer array
-#         Matrix which represents the discretized operator
-#     u : previous iteration - trial function
-#     Returns
-#     -------
-#     u : 1-dimensional n length array
-#         The next iteration to the Gauss Seidel iteration method
-#     '''
+    Parameters
+    ----------
+    A : 2-dimensional n x n integer array
+        Matrix which represents the discretized operator
+    u : previous iteration - trial function
+    Returns
+    -------
+    u : 1-dimensional n length array
+        The next iteration to the Gauss Seidel iteration method
+    '''
     
-#     n = len(A)  # define the size of the matrix
-#     # take one step in Gauss Seidel
-#     for i in range(n):
-#         u[i] = (f[i] - np.matmul(A[i][1:i-1], u[1:i-1]) - np.matmul(A[i][i+1:n], u[i+1:n])) / A[i][i]
+    n = len(A)  # define the size of the matrix
+    # take one step in Gauss Seidel
+    for i in range(n):
+        u[i] = (f[i] - np.matmul(A[i][1:i-1], u[1:i-1]) - np.matmul(A[i][i+1:n], u[i+1:n])) / A[i][i]
+    return u
+
+def iteration_sequence(A, f, u, err=0.028):
+    '''
+    Iteration sequence exists for two reasons:
+        1) Recalculate the residual and check the stopping criteria
+        2) Iterate over the Gauss Seidel Step 
+    Parameters
+    ----------
+    A : n x n two dimensional integer array
+        Discretized operator which which to iterate over
+    f : n length integer array
+        RHS of the equation
+    u : n length integer array
+        initial guess of solution to equation
+    e : integer
+        stopping criteria
         
-#     return u
+    Returns
+    -------
+    u : final solution
 
-# A = np.array([[2, 1, 1, 0], [4, 3, 3, 1], [8, 7, 9, 5], [6, 7, 9, 8]])
-# f = np.array([4, 11, 29, 30])
-# print(A)
-
-# def iteration_sequence(A, f, u, err=10e-6):
-#     '''
-#     Iteration sequence exists for two reasons:
-#         1) Recalculate the residual and check the stopping criteria
-#         2) Iterate over the Gauss Seidel Step 
-#     Parameters
-#     ----------
-#     A : n x n two dimensional integer array
-#         Discretized operator which which to iterate over
-#     f : n length integer array
-#         RHS of the equation
-#     u : n length integer array
-#         initial guess of solution to equation
-#     e : integer
-#         stopping criteria
-        
-#     Returns
-#     -------
-#     u : final solution
-
-#     '''
-#     residual = f - np.matmul(A, u)  # calculate residual for stopping condition
-#     u_next = gauss_seidel(A, u)  # calculate next step
-#     if(np.linalg.norm(residual)/np.linalg.norm(f) < 10e-6):
-#         return np.array([0, 0, 0, 0])
-#     print(np.linalg.norm(residual)/np.linalg.norm(f))
-
-#     return np.vstack((u_next, iteration_sequence(A, f, u_next)))
+    '''
+    residual = f - np.matmul(A, u)  # calculate residual for stopping condition
+    u_next = gauss_seidel(A, u)  # calculate next step
+    print(np.linalg.norm(residual)/np.linalg.norm(f))
+    if(np.linalg.norm(residual)/np.linalg.norm(f) < err):
+        return np.array(np.zeros(len(A)))
+    
+    return np.vstack((u_next, iteration_sequence(A, f, u_next)))
 
 
-# iteration_record = iteration_sequence(A, f, 0.95 * np.array([1, 1, 1, 1]))
-# print(iteration_record)
+iteration_record = iteration_sequence(A, f, np.ones(16))
+print(iteration_record)
 
 
 # Checking to see if everything is working
