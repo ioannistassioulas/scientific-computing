@@ -19,19 +19,19 @@ def exact_solution(x, y):
     return (x * (1 - x) * y**3 * (1 - y))+ np.exp(x)
 
 # Plot the exact solution
-# X = np.arange(0, 1, 0.1)
-# Y = np.arange(0, 1, 0.1)
-# x, y = np.meshgrid(X, Y)
-# z = (x * (1 - x) * y**3 * (1 - y)) + np.exp(x)
+X = np.arange(0, 1, 0.1)
+Y = np.arange(0, 1, 0.1)
+x, y = np.meshgrid(X, Y)
+z = (x * (1 - x) * y**3 * (1 - y)) + np.exp(x)
 
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# ax.plot_surface(x, y, z, label="Exact Solution")
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.plot_surface(x, y, z, label="Exact Solution")
 
-# plt.xlabel('X')
-# plt.ylabel('Y')
-# plt.legend()
-# plt.show()
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.legend()
+plt.show()
 
 #################################################
 
@@ -64,7 +64,7 @@ def direct_homebrew(A, n):
                     A[i][j] = A[i][j] - (L[i][k] * A[k][j])
     return L
 
-def direct_solver(A, f, N):
+def direct_solver(A, f):
     
     # placeholders for the solutions
     y = np.zeros(len(A))
@@ -88,6 +88,28 @@ def direct_solver(A, f, N):
 # Question 3
 
 # discretize and create my own matrix
+
+def A(N):
+    A = 4 * np.eye(N+1) - np.eye(N+1, k = 1) - np.eye(N+1, k = -1)
+    
+    A[:1, :] = 0
+    A[-1:, :] = 0
+    A[:, :1] = 0
+    A[:, -1:] = 0
+
+    
+    A[0][0] = 1/((N+1)**2)
+    A[N][N] = 1/((N+1)**2)
+    print(A)
+    return A
+
+def B(N):
+    B = -1*np.eye(N+1)
+    B[0][0] = 0
+    B[N][N] = 0
+    
+    return B
+
 def create_matrix(N):
     h = 1 / (N+1)  # step division
     
@@ -96,9 +118,20 @@ def create_matrix(N):
     y = np.arange(0, 1, h)
     X, Y = np.meshgrid(x, y)
     
-    # discretize the operator
+    # construct the discretized block matrix
+    blocks_A = [A(N) for i in range(N+1)]
+    blocks_B = [B(N) for i in range(N)]
+    matrix_A = sp.sparse.block_diag(blocks_A, format="csr").toarray()
     
-
+    offset = np.empty((0, N+1), int)
+    matrix_B1 = sp.linalg.block_diag(offset, *blocks_B, offset.T)
+    matrix_B2 = sp.linalg.block_diag(offset.T, *blocks_B, offset)
+    
+    matrix = matrix_A + matrix_B1 + matrix_B2
+    
+    return matrix
+        
+create_matrix(3)
 A = [[2, 1, 1, 0], [4, 3, 3, 1], [8, 7, 9, 5], [6, 7, 9, 8]]
 f = [1, 2, 3, 4]
 sol, lower, upper= direct_solver(A,f)
@@ -107,63 +140,64 @@ sol, lower, upper= direct_solver(A,f)
 L_home  = direct_homebrew(A, len(A))
 
 # solve problem using Gauss Seidel
-def gauss_seidel(A, u):
-    '''
-    Take a single step in the Gauss Seidel iteration method
+# def gauss_seidel(A, u):
+#     '''
+#     Take a single step in the Gauss Seidel iteration method
 
-    Parameters
-    ----------
-    A : 2-dimensional n x n integer array
-        Matrix which represents the discretized operator
-    u : previous iteration - trial function
-    Returns
-    -------
-    u : 1-dimensional n length array
-        The next iteration to the Gauss Seidel iteration method
-    '''
+#     Parameters
+#     ----------
+#     A : 2-dimensional n x n integer array
+#         Matrix which represents the discretized operator
+#     u : previous iteration - trial function
+#     Returns
+#     -------
+#     u : 1-dimensional n length array
+#         The next iteration to the Gauss Seidel iteration method
+#     '''
     
-    n = len(A)  # define the size of the matrix
-    # take one step in Gauss Seidel
-    for i in range(n):
-        u[i] = (f[i] - np.matmul(A[i][1:i-1], u[1:i-1]) - np.matmul(A[i][i+1:n], u[i+1:n])) / A[i][i]
+#     n = len(A)  # define the size of the matrix
+#     # take one step in Gauss Seidel
+#     for i in range(n):
+#         u[i] = (f[i] - np.matmul(A[i][1:i-1], u[1:i-1]) - np.matmul(A[i][i+1:n], u[i+1:n])) / A[i][i]
         
-    return u
+#     return u
 
-A = [[2, 1, 1, 0], [4, 3, 3, 1], [8, 7, 9, 5], [6, 7, 9, 8]]
-f = [4, 11, 29, 30]
+# A = np.array([[2, 1, 1, 0], [4, 3, 3, 1], [8, 7, 9, 5], [6, 7, 9, 8]])
+# f = np.array([4, 11, 29, 30])
+# print(A)
 
-def iteration_sequence(A, f, u, err=10e-6):
-    '''
-    Iteration sequence exists for two reasons:
-        1) Recalculate the residual and check the stopping criteria
-        2) Iterate over the Gauss Seidel Step 
-    Parameters
-    ----------
-    A : n x n two dimensional integer array
-        Discretized operator which which to iterate over
-    f : n length integer array
-        RHS of the equation
-    u : n length integer array
-        initial guess of solution to equation
-    e : integer
-        stopping criteria
+# def iteration_sequence(A, f, u, err=10e-6):
+#     '''
+#     Iteration sequence exists for two reasons:
+#         1) Recalculate the residual and check the stopping criteria
+#         2) Iterate over the Gauss Seidel Step 
+#     Parameters
+#     ----------
+#     A : n x n two dimensional integer array
+#         Discretized operator which which to iterate over
+#     f : n length integer array
+#         RHS of the equation
+#     u : n length integer array
+#         initial guess of solution to equation
+#     e : integer
+#         stopping criteria
         
-    Returns
-    -------
-    u : final solution
+#     Returns
+#     -------
+#     u : final solution
 
-    '''
-    residual = f - np.matmul(A, u)  # calculate residual for stopping condition
-    u_next = gauss_seidel(A, u)  # calculate next step
-    if(np.linalg.norm(residual)/np.linalg.norm(f) < 10e-6):
-        return np.array([0, 0, 0, 0])
-    print(np.linalg.norm(residual)/np.linalg.norm(f))
+#     '''
+#     residual = f - np.matmul(A, u)  # calculate residual for stopping condition
+#     u_next = gauss_seidel(A, u)  # calculate next step
+#     if(np.linalg.norm(residual)/np.linalg.norm(f) < 10e-6):
+#         return np.array([0, 0, 0, 0])
+#     print(np.linalg.norm(residual)/np.linalg.norm(f))
 
-    return np.vstack((u_next, iteration_sequence(A, f, u_next)))
+#     return np.vstack((u_next, iteration_sequence(A, f, u_next)))
 
 
-iteration_record = iteration_sequence(A, f, 0.9 * np.array([1, 1, 1, 1]))
-print(iteration_record)
+# iteration_record = iteration_sequence(A, f, 0.95 * np.array([1, 1, 1, 1]))
+# print(iteration_record)
 
 
 # Checking to see if everything is working
