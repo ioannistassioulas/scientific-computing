@@ -54,8 +54,8 @@ def A(N, c):
     A[:, -1:] = 0
 
     
-    A[0][0] = 1/(h**2)
-    A[N][N] = 1/(h**2)
+    A[0][0] = (h**2)
+    A[N][N] = (h**2)
     return A
 
 def B(N):
@@ -72,6 +72,7 @@ def create_matrix(N,c):
     x = np.arange(0, 1+h, h)
     y = np.arange(0, 1+h, h)
     
+    # find the correct 
     f = f_sol(x, y, N)
     
     # construct the discretized block matrix
@@ -92,10 +93,11 @@ def create_matrix(N,c):
     matrix[:, :(N+1)] = 0
     matrix[:, -(N+1):] = 0
     
+    # add h**2 back to the diagonal
     for i in range(len(matrix)):
         matrix[i][i] = (1 / (N+1))**2 if matrix[i][i] == 0 else matrix[i][i]
     
-    return np.array(matrix), f
+    return (1 / h**2) * np.array(matrix), f
         
 A1, f = create_matrix(3, -2)
 
@@ -143,12 +145,27 @@ def direct_solver(A, f):
     # Return the final solution
     return u
 
-u_exact = np.array([])
-for i in X:
-    for j in Y:
-        u_exact = np.append(u_exact, exact_solution(i, j))
-print(u_exact)
-u_16 = direct_solver(create_matrix(16, 2))
+def error_finder(N):
+    h = 1 / N
+    
+    X = np.arange(0, 1+h, h)
+    Y = np.arange(0, 1+h, h)
+
+    u_exact = np.array([])
+    for i in X:
+        for j in Y:
+            u_exact = np.append(u_exact, exact_solution(i, j))
+
+    u_h = sp.linalg.solve(*create_matrix(N, 2), assume_a = 'sym')
+    u_diff = np.max(np.linalg.norm(u_exact - u_h))
+
+    return u_diff
+
+print(error_finder(16))
+print(error_finder(32))
+print(error_finder(64))
+print(error_finder(128))
+
 
 
 ###########################################
@@ -180,38 +197,38 @@ def gauss_seidel(A, u):
         u[i] = (f[i] - np.matmul(A[i][1:i-1], u[1:i-1]) - np.matmul(A[i][i+1:n], u[i+1:n])) / A[i][i]
     return u
 
-def iteration_sequence(A, f, u, err=0.1):
-    '''
-    Iteration sequence exists for two reasons:
-        1) Recalculate the residual and check the stopping criteria
-        2) Iterate over the Gauss Seidel Step 
-    Parameters
-    ----------
-    A : n x n two dimensional integer array
-        Discretized operator which which to iterate over
-    f : n length integer array
-        RHS of the equation
-    u : n length integer array
-        initial guess of solution to equation
-    e : integer
-        stopping criteria
+# def iteration_sequence(A, f, u, err=0.1):
+#     '''
+#     Iteration sequence exists for two reasons:
+#         1) Recalculate the residual and check the stopping criteria
+#         2) Iterate over the Gauss Seidel Step 
+#     Parameters
+#     ----------
+#     A : n x n two dimensional integer array
+#         Discretized operator which which to iterate over
+#     f : n length integer array
+#         RHS of the equation
+#     u : n length integer array
+#         initial guess of solution to equation
+#     e : integer
+#         stopping criteria
         
-    Returns
-    -------
-    u : final solution
+#     Returns
+#     -------
+#     u : final solution
 
-    '''
-    residual = f - np.matmul(A, u)  # calculate residual for stopping condition
-    u_next = gauss_seidel(A, u)  # calculate next step
-    print(np.linalg.norm(residual)/np.linalg.norm(f))
-    stopping = np.linalg.norm(residual) / np.linalg.norm(f)
-    if(stopping <= err):
-        return np.array(np.zeros(len(A)))
+#     '''
+#     residual = f - np.matmul(A, u)  # calculate residual for stopping condition
+#     u_next = gauss_seidel(A, u)  # calculate next step
+#     print(np.linalg.norm(residual)/np.linalg.norm(f))
+#     stopping = np.linalg.norm(residual) / np.linalg.norm(f)
+#     if(stopping <= err):
+#         return np.array(np.zeros(len(A)))
         
-    return np.vstack((u_next, iteration_sequence(A, f, u_next, err)))
+#     return np.vstack((u_next, iteration_sequence(A, f, u_next, err)))
 
 
-iteration_record = iteration_sequence(A1, f, np.ones(16))
+# iteration_record = iteration_sequence(A1, f, np.ones(16))
 
 
 
