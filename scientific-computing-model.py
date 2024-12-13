@@ -18,79 +18,35 @@ from scipy import linalg
 def exact_solution(x, y):
     return (x * (1 - x) * y**3 * (1 - y))+ np.exp(x)
 
-# Plot the exact solution
-X = np.arange(0, 1, 0.1)
-Y = np.arange(0, 1, 0.1)
-x, y = np.meshgrid(X, Y)
-z = (x * (1 - x) * y**3 * (1 - y)) + np.exp(x)
+def f_function(x, y): # create the function f that guarantees u
+    return 2*y**3*(1-y) - 6*x*y*(1-2*y)*(1-x) + np.exp(x) - (2j*(x*(1-x)*y**3*(1-y) + np.exp(x)))
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-ax.plot_surface(x, y, z, label="Exact Solution")
-
-plt.xlabel('X')
-plt.ylabel('Y')
-plt.legend()
-plt.show()
-
-#################################################
-
-# Question 2
-# Direct solver via LU-Decomposition
-def direct_homebrew(A, n):
-    '''
-    My homebrew of the direct solver, built according to the specifications of
-    the pseudocode given in the textbook. To be used to compare to the scipy
-    black box.
+def f_sol(x, y, N):
+    f_sol = np.zeros(((N+1), (N+1)))
+    for i in range(1, len(x)-1):
+        for j in range(1, len(y)-1):
+            f_sol[i][j] = f_function(x[i], y[j])
     
-    Keywords:
-    A: Matrix to be decomposed
-    n: length of the square matrix
-    '''
-    L = np.identity(n)
-    for k in range(n):
-        if A[k][k] == 0:  # make sure that we can still pivot
-            return 0
-        else:
-            maximum = np.argmax(A, axis = 0)[k]
-            place = A[k]
-            A[k] = A[maximum]
-            A[maximum] = place
-                
-            for i in range(k+1, n):
-                L[i][k] = (A[i][k] / A[k][k])  #  alpha coefficient
-                A[i][k] = L[i][k]
-                for j in range(k+1, n):
-                    A[i][j] = A[i][j] - (L[i][k] * A[k][j])
-    return L
-
-def direct_solver(A, f):
+    # Add certain boundary conditions
+    f = np.vstack(([np.exp(k) for k in x[1:N]], np.zeros((N-3, N-1)), [np.exp(k) for k in x[1:N]]))
+    g = np.hstack((np.vstack([np.exp(0)]*(N-1)), np.zeros((N-1, N-3)), (np.vstack([np.exp(1)]*(N-1)))))
+    tot = np.pad(f + g, ((1, 1), (1, 1)), 'constant', constant_values = ((0, 0), (0, 0)))
     
-    # placeholders for the solutions
-    y = np.zeros(len(A))
-    u = np.zeros(len(A))
+    f_sol += tot
     
-    # LU decomposition
-    P, L, U = sp.linalg.lu(A)
+    # set boundary nodes to boundary conditions
+    v = [np.exp(k) for k in x]
     
-    # solution from LU decomposition via forward and backward substitution
-    for i in range(0, len(A)):
-        y[i] = f[i] - np.matmul(L[i][1:i-1], y[1:i-1])
-        
-    for j in range(len(A)-1, -1, -1):
-        u[j] = (y[j] - np.matmul(U[j][j+1:len(A)-1], u[j+1:len(A)-1])) / U[j][j]
-    
-    # Return the final solution
-    return u, L, U
+    f_sol[0] = v
+    f_sol[N] = v
+    f_sol[:, 0] = np.array([np.exp(x[0])])
+    f_sol[:, N] = np.array([np.exp(x[N])])
 
+    return f_sol.flatten()
 
-###########################################
-# Question 3
-
-# discretize and create my own matrix
-
-def A(N):
-    A = 4 * np.eye(N+1) - np.eye(N+1, k = 1) - np.eye(N+1, k = -1)
+def A(N, c):
+    h = 1 / (N+1)
+    A = (4 - (h**2 * c*1j)) * np.eye(N+1) - np.eye(N+1, k = 1) - np.eye(N+1, k = -1)
     
     A[:1, :] = 0
     A[-1:, :] = 0
@@ -98,8 +54,8 @@ def A(N):
     A[:, -1:] = 0
 
     
-    A[0][0] = 1/((N+1)**2)
-    A[N][N] = 1/((N+1)**2)
+    A[0][0] = 1/(h**2)
+    A[N][N] = 1/(h**2)
     return A
 
 def B(N):
@@ -109,16 +65,17 @@ def B(N):
     
     return B
 
-def create_matrix(N):
-    h = 1 / (N+1)  # step division
+def create_matrix(N,c):
+    h = 1 / N  # step division
     
     # discretize the grid
-    x = np.arange(0, 1, h)
-    y = np.arange(0, 1, h)
-    X, Y = np.meshgrid(x, y)
+    x = np.arange(0, 1+h, h)
+    y = np.arange(0, 1+h, h)
+    
+    f = f_sol(x, y, N)
     
     # construct the discretized block matrix
-    blocks_A = [A(N) for i in range(N+1)]
+    blocks_A = [A(N,c) for i in range(N+1)]
     blocks_B = [B(N) for i in range(N)]
     matrix_A = sp.sparse.block_diag(blocks_A, format="csr").toarray()
     
@@ -138,17 +95,68 @@ def create_matrix(N):
     for i in range(len(matrix)):
         matrix[i][i] = (1 / (N+1))**2 if matrix[i][i] == 0 else matrix[i][i]
     
-    return np.array(matrix)
+    return np.array(matrix), f
         
-print(create_matrix(3))
+A1, f = create_matrix(3, -2)
 
-A = create_matrix(3)
-f = np.random.randint(1, 10, size=len(A))
-print(f.shape)
-sol, lower, upper= direct_solver(A,f)
+# Plot the exact solution
+N = 4
+h = 1 / N
+
+X = np.arange(0, 1+h, h)
+Y = np.arange(0, 1+h, h)
+
+x, y = np.meshgrid(X, Y)
+z = (x * (1 - x) * y**3 * (1 - y)) + np.exp(x)
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+ax.plot_surface(x, y, z, label="Exact Solution")
+
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.legend()
+plt.show()
+
+#################################################
+
+# Question 2
+# Direct solver via LU-Decomposition
 
 
-L_home  = direct_homebrew(A, len(A))
+def direct_solver(A, f):
+    
+    # placeholders for the solutions
+    y = np.zeros(len(A))
+    u = np.zeros(len(A))
+    
+    # LU decomposition
+    P, L, U = sp.linalg.lu(A)
+    
+    # solution from LU decomposition via forward and backward substitution
+    for i in range(0, len(A)):
+        y[i] = f[i] - np.matmul(L[i][1:i-1], y[1:i-1])
+        
+    for j in range(len(A)-1, -1, -1):
+        u[j] = (y[j] - np.matmul(U[j][j+1:len(A)-1], u[j+1:len(A)-1])) / U[j][j]
+    
+    # Return the final solution
+    return u
+
+u_exact = np.array([])
+for i in X:
+    for j in Y:
+        u_exact = np.append(u_exact, exact_solution(i, j))
+print(u_exact)
+u_16 = direct_solver(create_matrix(16, 2))
+
+
+###########################################
+# Question 3
+
+# discretize and create my own matrix
+
+
 
 # solve problem using Gauss Seidel
 def gauss_seidel(A, u):
@@ -172,7 +180,7 @@ def gauss_seidel(A, u):
         u[i] = (f[i] - np.matmul(A[i][1:i-1], u[1:i-1]) - np.matmul(A[i][i+1:n], u[i+1:n])) / A[i][i]
     return u
 
-def iteration_sequence(A, f, u, err=0.028):
+def iteration_sequence(A, f, u, err=0.1):
     '''
     Iteration sequence exists for two reasons:
         1) Recalculate the residual and check the stopping criteria
@@ -196,14 +204,15 @@ def iteration_sequence(A, f, u, err=0.028):
     residual = f - np.matmul(A, u)  # calculate residual for stopping condition
     u_next = gauss_seidel(A, u)  # calculate next step
     print(np.linalg.norm(residual)/np.linalg.norm(f))
-    if(np.linalg.norm(residual)/np.linalg.norm(f) < err):
+    stopping = np.linalg.norm(residual) / np.linalg.norm(f)
+    if(stopping <= err):
         return np.array(np.zeros(len(A)))
-    
-    return np.vstack((u_next, iteration_sequence(A, f, u_next)))
+        
+    return np.vstack((u_next, iteration_sequence(A, f, u_next, err)))
 
 
-iteration_record = iteration_sequence(A, f, np.ones(16))
-print(iteration_record)
+iteration_record = iteration_sequence(A1, f, np.ones(16))
+
 
 
 # Checking to see if everything is working
