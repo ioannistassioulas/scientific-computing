@@ -8,6 +8,7 @@ Created on Mon Nov 25 23:28:22 2024
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
+import timeit as time
 from scipy import linalg
 
 # Working on a new scientific computing model that helps compute the solutiuon
@@ -19,51 +20,58 @@ def exact_solution(x, y):
     return (x * (1 - x) * y**3 * (1 - y))+ np.exp(x)
 
 def f_function(x, y): # create the function f that guarantees u
-    return 2*y**3*(1-y) - 6*x*y*(1-2*y)*(1-x) + np.exp(x) - (2j*(x*(1-x)*y**3*(1-y) + np.exp(x)))
+    # return 2*y**3*(1-y) - 6*x*y*(1-2*y)*(1-x) + np.exp(x) - (2j*(x*(1-x)*y**3*(1-y) + np.exp(x)))
+    return (-2 * y**3 * (1 - y) + 6 * x * (1 - x) * y * (1 - 2 * y) + np.exp(x)) - 2j * (x * (1 - x) * y**3 * (1 - y) + np.exp(x))
 
 def f_sol(x, y, N):
+    h = 1 / N
     f_sol = np.zeros(((N+1), (N+1)))
-    for i in range(1, len(x)-1):
-        for j in range(1, len(y)-1):
-            f_sol[i][j] = f_function(x[i], y[j])
-    
-    # Add certain boundary conditions
-    f = np.vstack(([np.exp(k) for k in x[1:N]], np.zeros((N-3, N-1)), [np.exp(k) for k in x[1:N]]))
-    g = np.hstack((np.vstack([np.exp(0)]*(N-1)), np.zeros((N-1, N-3)), (np.vstack([np.exp(1)]*(N-1)))))
-    tot = np.pad(f + g, ((1, 1), (1, 1)), 'constant', constant_values = ((0, 0), (0, 0)))
-    
-    f_sol += tot
-    
-    # set boundary nodes to boundary conditions
-    v = [np.exp(k) for k in x]
-    
-    f_sol[0] = v
-    f_sol[N] = v
-    f_sol[:, 0] = np.array([np.exp(x[0])])
-    f_sol[:, N] = np.array([np.exp(x[N])])
+
+    for i in range(1, N):
+        for j in range(1, N):
+            f_sol[i][j] = h**2 * f_function(x[i], y[j])
+
+    # Apply boundary conditions
+    # x=0 and x=1 boundaries
+    f_sol[0, :] = 1.0  # u = 1 at x=0
+    f_sol[N, :] = np.exp(1)  # u = e at x=1
+    # y=0 and y=1 boundaries
+    f_sol[:, 0] = np.exp(x)  # u = e^x at y=0
+    f_sol[:, N] = np.exp(x)  # u = e^x at y=1
 
     return f_sol.flatten()
 
 def A(N, c):
-    h = 1 / (N+1)
-    A = (4 - (h**2 * c*1j)) * np.eye(N+1) - np.eye(N+1, k = 1) - np.eye(N+1, k = -1)
-    
-    A[:1, :] = 0
-    A[-1:, :] = 0
-    A[:, :1] = 0
-    A[:, -1:] = 0
+    h = 1 / N
 
-    
-    A[0][0] = (h**2)
-    A[N][N] = (h**2)
-    return A
+    # Construct the diagonal and off-diagonal values using sparse matrices
+    main_diag = (4 - h**2 * c * 1j) * np.ones(N+1)  # Main diagonal values
+    off_diag = -np.ones(N)  # Off-diagonal values for the first superdiagonal and subdiagonal
+    A_sparse = sp.sparse.diags([main_diag, off_diag, off_diag], [0, 1, -1], shape=(N+1, N+1), format="csc")
+
+    # # Create sparse matrices for the diagonals
+    # main_diag_sparse = sp.sparse.diags([main_diag, off_diag, off_diag], [0, 1, -1], shape=(N+1, N+1), format="csc")  # Main diagonal
+
+    # Apply boundary conditions: Set the first and last rows/columns to zero
+    A_sparse[0, 0] = 1
+    A_sparse[0, 1:] = 0
+    A_sparse[-1, -1] = 1
+    A_sparse[-1, :-1] = 0
+
+    # Correct the boundary values
+    A_sparse[0, 0] = h**2
+    A_sparse[N, N] = h**2
+
+    return A_sparse
 
 def B(N):
-    B = -1*np.eye(N+1)
-    B[0][0] = 0
-    B[N][N] = 0
-    
-    return B
+    B = sp.sparse.diags([-1], [0], shape=(N+1, N+1), format="csc")
+    B = B.tolil()  # Convert to List of Lists format for modification
+
+    # Set boundary rows to zero
+    B[0, :] = 0
+    B[N, :] = 0
+    return B.tocsc()
 
 def create_matrix(N,c):
     h = 1 / N  # step division
@@ -76,28 +84,15 @@ def create_matrix(N,c):
     f = f_sol(x, y, N)
     
     # construct the discretized block matrix
-    blocks_A = [A(N,c) for i in range(N+1)]
-    blocks_B = [B(N) for i in range(N)]
-    matrix_A = sp.sparse.block_diag(blocks_A, format="csr").toarray()
-    
-    offset = np.empty((0, N+1), int)
-    matrix_B1 = sp.linalg.block_diag(offset, *blocks_B, offset.T)
-    matrix_B2 = sp.linalg.block_diag(offset.T, *blocks_B, offset)
-    
-    matrix = matrix_A + matrix_B1 + matrix_B2  
+    I = sp.sparse.eye(N+1, format='csc')
+    A_block = A(N,c)
+    B_block = sp.sparse.diags([-1, -1], [1, -1], shape=(N+1, N+1), format='csc')
 
+    A_big = sp.sparse.kron(I, A_block, format="csc")  # Main diagonal blocks
+    B_big = sp.sparse.kron(B_block, I, format="csc")  # Off-diagonal
+    matrix = (A_big + B_big) / h**2
     
-    #delete boundaries
-    matrix[:N+1, :] = 0
-    matrix[-(N+1):, :] = 0
-    matrix[:, :(N+1)] = 0
-    matrix[:, -(N+1):] = 0
-    
-    # add h**2 back to the diagonal
-    for i in range(len(matrix)):
-        matrix[i][i] = (1 / (N+1))**2 if matrix[i][i] == 0 else matrix[i][i]
-    
-    return (1 / h**2) * np.array(matrix), f
+    return matrix, f
         
 A1, f = create_matrix(3, -2)
 
@@ -124,49 +119,58 @@ plt.show()
 
 # Question 2
 # Direct solver via LU-Decomposition
-
-
-def direct_solver(A, f):
-    
-    # placeholders for the solutions
-    y = np.zeros(len(A))
-    u = np.zeros(len(A))
-    
-    # LU decomposition
-    P, L, U = sp.linalg.lu(A)
-    
-    # solution from LU decomposition via forward and backward substitution
-    for i in range(0, len(A)):
-        y[i] = f[i] - np.matmul(L[i][1:i-1], y[1:i-1])
-        
-    for j in range(len(A)-1, -1, -1):
-        u[j] = (y[j] - np.matmul(U[j][j+1:len(A)-1], u[j+1:len(A)-1])) / U[j][j]
-    
-    # Return the final solution
-    return u
-
 def error_finder(N):
-    h = 1 / N
+    h = 1 / (N + 1)
+    X = np.linspace(0, 1, N+1)
+    Y = np.linspace(0, 1, N+1)
     
-    X = np.arange(0, 1+h, h)
-    Y = np.arange(0, 1+h, h)
+    # Exact solution
+    u_exact = exact_solution(*np.meshgrid(X, Y)).flatten()
+    
+    # Solve
+    A_mat, f_rhs = create_matrix(N, 2)  # c=2 as per problem statement
+    u_h = sp.sparse.linalg.spsolve(A_mat, f_rhs)
+    
+    # Calculate maximum error
+    error = np.max(np.abs(u_exact - u_h))
+    return error
 
-    u_exact = np.array([])
-    for i in X:
-        for j in Y:
-            u_exact = np.append(u_exact, exact_solution(i, j))
+start = time.timeit()
+print(error_finder(16) - np.exp(1))
+end = time.timeit()
+print(f"Time elapse: {end - start}")
 
-    u_h = sp.linalg.solve(*create_matrix(N, 2), assume_a = 'sym')
-    u_diff = np.max(np.linalg.norm(u_exact - u_h))
+start = time.timeit()
+print(error_finder(32) - np.exp(1))
+end = time.timeit()
+print(f"Time elapse: {end - start}")
 
-    return u_diff
+start = time.timeit()
+print(error_finder(64) - np.exp(1))
+end = time.timeit()
+print(f"Time elapse: {end - start}")
 
-print(error_finder(16))
-print(error_finder(32))
-print(error_finder(64))
-print(error_finder(128))
+start = time.timeit()
+print(error_finder(128) - np.exp(1))
+end = time.timeit()
+print(f"Time elapse: {end - start}")
 
+start = time.timeit()
+print(error_finder(256) - np.exp(1))
+end = time.timeit()
+print(f"Time elapse: {end - start}")
 
+answers = np.array([error_finder(2**(n+4)) for n in range(5)]) - np.exp(1)
+h_values = np.array([1/(2**(n+4)) for n in range(5)])
+test = np.array([2**(n+4) for n in range(5)])
+print(test)
+plt.plot(test, h_values, label="O(h^2) - Theoretical Errorr")
+plt.plot(test, answers, label="Real Simulation Error")
+plt.title("Scaling of Error")
+plt.xlabel("Iteration Step")
+plt.ylabel("Error")
+plt.legend()
+plt.show()
 
 ###########################################
 # Question 3
